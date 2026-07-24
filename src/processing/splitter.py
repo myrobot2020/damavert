@@ -19,23 +19,44 @@ def normalize_text(text):
 
 def split_suttas(text, book_id):
     # Regex for x.y.z where x is the book_id
+    # e.g., 1.2.3
     pattern = rf'({book_id}\.\d+\.\d+)'
 
-    # Find all matches with their positions
-    matches = list(re.finditer(pattern, text))
+    # Split text into sentences using simple regex (can be improved with nltk/spacy)
+    sentences = re.split(r'(?<=[.!?])\s+', text)
 
     suttas = []
-    for i, match in enumerate(matches):
-        start_idx = match.start()
-        # Find the split point: look back for the last full stop or timestamp before this ID
-        # For simplicity in boilerplate, we split right before the ID
+    current_sutta_sentences = []
+    current_sutta_id = None
 
-        end_idx = matches[i+1].start() if i+1 < len(matches) else len(text)
-        sutta_content = text[start_idx:end_idx].strip()
+    for sentence in sentences:
+        match = re.search(pattern, sentence)
+        if match:
+            # If we found a new x.y.z, it becomes the first sentence of the new sutta
+            if current_sutta_id is not None:
+                # Save the previous sutta
+                content = " ".join(current_sutta_sentences)
+                # Heuristic tagging: For now just wrapping everything
+                # This will be replaced by the ML model's tags
+                tagged_content = f"*buddha* {content} *buddha*"
+                suttas.append({
+                    "sutta_id": current_sutta_id,
+                    "processed_text": tagged_content
+                })
 
+            # Start a new sutta
+            current_sutta_id = match.group(1)
+            current_sutta_sentences = [sentence]
+        else:
+            current_sutta_sentences.append(sentence)
+
+    # Add the last sutta
+    if current_sutta_id is not None:
+        content = " ".join(current_sutta_sentences)
+        tagged_content = f"*buddha* {content} *buddha*"
         suttas.append({
-            "sutta_id": match.group(1),
-            "content": sutta_content
+            "sutta_id": current_sutta_id,
+            "processed_text": tagged_content
         })
 
     return suttas
